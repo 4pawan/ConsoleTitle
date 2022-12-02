@@ -54,8 +54,22 @@ async Task<string> GetResponseString(string Url)
 {
     var httpClient = new HttpClient();
     Uri myUri = new Uri(Url, UriKind.Absolute);
-    var response = await httpClient.GetAsync(myUri);
-    var contents = await response.Content.ReadAsStringAsync();
+    int effort = 1;
+    string contents = null;
+    while (effort < 4)
+    {
+        try
+        {
+            var response = await httpClient.GetAsync(myUri);
+            contents = await response.Content.ReadAsStringAsync();
+            break;
+        }
+        catch (Exception ex)
+        {
+            effort++;
+            Console.WriteLine("Error..retrying " + effort + " url :" + Url);
+        }
+    }
 
     return contents;
 }
