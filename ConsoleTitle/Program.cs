@@ -1,7 +1,9 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
 using System.Diagnostics;
+using System.Text;
 using System.Text.RegularExpressions;
+using HtmlAgilityPack;
 using NPOI.SS.UserModel;
 using NPOI.XSSF.UserModel;
 
@@ -32,13 +34,13 @@ using (var stream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite))
                 {
                     var cellValue = row.GetCell(j).ToString();
                     var response = await GetResponseString(cellValue);
-                    var title = GetTitle(response);
+                    string data = GetBreadCrumb(response);
                     k++;
                     Debug.WriteLine("----- >" + k);
                     var cell1 = row.CreateCell(1);
-                    cell1.SetCellValue(title);
+                    cell1.SetCellValue(data);
                     Console.WriteLine("----- >" + k);
-                    AppendDataToTextFile(title);
+                    AppendDataToTextFile(data);
 
                 }
             }
@@ -86,6 +88,43 @@ static string GetTitle(string file)
         return "";
     }
 }
+static string GetBreadCrumb(string file)
+{
+
+    //string pattern2 = @"<div role=""navigation"" aria-label=""Breadcrumb"" class=""breadcrumb"">\s*(.+?)\s*</div>";
+    //string pattern3 = @"<nav class=""task-breadcrumbs"" aria-label=""Breadcrumb"">\s*(.+?)\s*</nav>";
+    StringBuilder result = new StringBuilder();
+
+    HtmlDocument doc = new HtmlDocument();
+    doc.LoadHtml(file);
+
+    var pattern1 = doc.DocumentNode.SelectNodes("//div[@class='breadcrumb']");
+    if (pattern1 != null)
+    {
+        var list = pattern1.Descendants("li");
+        foreach (var item in list)
+        {
+            result.Append(item.InnerText + "/");
+        }
+
+        return result.ToString().TrimEnd('/');
+    }
+
+    var pattern2 = doc.DocumentNode.SelectNodes("//div/nav[@aria-label='Breadcrumb']");
+    if (pattern2 != null)
+    {
+        var list = pattern2.Descendants("li");
+        foreach (var item in list)
+        {
+            result.Append(item.InnerText + "/");
+        }
+
+        return result.ToString().TrimEnd('/'); ;
+
+    }
+    return null;
+}
+
 void AppendDataToTextFile(string title)
 {
 

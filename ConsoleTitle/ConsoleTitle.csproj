@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="EPPlus" Version="6.1.1" />
     <PackageReference Include="NPOI" Version="2.6.0" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.11.46" />
   </ItemGroup>
 
   <ItemGroup>
