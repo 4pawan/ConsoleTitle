@@ -1,6 +1,7 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
 using System.Diagnostics;
+using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
@@ -64,6 +65,15 @@ async Task<string> GetResponseString(string Url)
         {
             var response = await httpClient.GetAsync(myUri);
             contents = await response.Content.ReadAsStringAsync();
+
+            if (response.StatusCode == HttpStatusCode.Moved)
+            {
+                var redirectedUrl = response.Headers.Location.AbsoluteUri;
+                var responseredirected = await httpClient.GetAsync(redirectedUrl);
+                contents = await responseredirected.Content.ReadAsStringAsync();
+            }
+
+
             break;
         }
         catch (Exception ex)
