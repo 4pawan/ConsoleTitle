@@ -35,7 +35,7 @@ using (var stream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite))
                 {
                     var cellValue = row.GetCell(j).ToString();
                     var response = await GetResponseString(cellValue);
-                    string data = GetBreadCrumb(response);
+                    string data = GetAllHyperLink(response);
                     k++;
                     Debug.WriteLine("----- >" + k);
                     var cell1 = row.CreateCell(1);
@@ -134,6 +134,42 @@ static string GetBreadCrumb(string file)
     }
     return null;
 }
+static string GetAllHyperLink(string file)
+{
+
+    StringBuilder result = new StringBuilder();
+
+    HtmlDocument doc = new HtmlDocument();
+    doc.LoadHtml(file);
+
+    var links = doc.DocumentNode.SelectNodes("//a[@href]");
+
+    if (links != null)
+    {
+        var list = links.Where(link => link.GetAttributeValue("href", null).EndsWith(".pdf"));
+        foreach (var item in list)
+        {
+            result.Append(item.InnerText + "/");
+        }
+
+        return result.ToString().TrimEnd('/');
+    }
+
+    var pattern2 = doc.DocumentNode.SelectNodes("//div/nav[@aria-label='Breadcrumb']");
+    if (pattern2 != null)
+    {
+        var list = pattern2.Descendants("li");
+        foreach (var item in list)
+        {
+            result.Append(item.InnerText + "/");
+        }
+
+        return result.ToString().TrimEnd('/'); ;
+
+    }
+    return null;
+}
+
 
 void AppendDataToTextFile(string title)
 {
