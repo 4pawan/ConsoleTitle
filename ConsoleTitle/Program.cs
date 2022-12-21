@@ -1,10 +1,11 @@
-﻿// See https://aka.ms/new-console-template for more information
+// See https://aka.ms/new-console-template for more information
 
 using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
+using NPOI.HPSF;
 using NPOI.SS.UserModel;
 using NPOI.XSSF.UserModel;
 
@@ -12,9 +13,14 @@ Console.WriteLine("Hello, World!");
 int k = 0;
 
 ISheet sheet;
-string path = @"C:\Project\Title\ConsoleTitle\ConsoleTitle\input\Book2.xlsx";
-string filePath = @"C:\Project\Title\ConsoleTitle\ConsoleTitle\input\Book234.xlsx";
-string txtPath = @"C:\Project\Title\ConsoleTitle\ConsoleTitle\input\saved.txt";
+string rootpath = @"C:\Project\ConsoleTitle\ConsoleTitle\input";
+string path = @$"{rootpath}\Book2.xlsx";
+string filePath = @$"{rootpath}\Book234.xlsx";
+string txtTitlePath = @$"{rootpath}\title.txt";
+string txtBreadcrumbPath = @$"{rootpath}\breadcrumb.txt";
+string txtAssetCountPath = @$"{rootpath}\count.txt";
+string txtDetailedListForGivenLinkPath = @"{0}\links\{1}.txt"; // {rootpath}\links\guid.txt
+
 
 using (var stream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite))
 {
@@ -35,14 +41,19 @@ using (var stream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite))
                 {
                     var cellValue = row.GetCell(j).ToString();
                     var response = await GetResponseString(cellValue);
-                    string data = GetAllHyperLink(response);
+                    string title = GetTitle(response);
+                    string breadcrumb = GetBreadCrumb(response);
+                    string guid = Guid.NewGuid().ToString("N");
+                    string dataToBeSavedinExcel = GetAssetDetails(response, guid);
+
                     k++;
                     Debug.WriteLine("----- >" + k);
                     var cell1 = row.CreateCell(1);
-                    cell1.SetCellValue(data);
+                    cell1.SetCellValue(dataToBeSavedinExcel);
                     Console.WriteLine("----- >" + k);
-                    AppendDataToTextFile(data);
-
+                    AppendDataToTextFile(dataToBeSavedinExcel, txtAssetCountPath);
+                    AppendDataToTextFile(title, txtTitlePath);
+                    AppendDataToTextFile(breadcrumb, txtBreadcrumbPath);
                 }
             }
         }
@@ -100,9 +111,6 @@ static string GetTitle(string file)
 }
 static string GetBreadCrumb(string file)
 {
-
-    //string pattern2 = @"<div role=""navigation"" aria-label=""Breadcrumb"" class=""breadcrumb"">\s*(.+?)\s*</div>";
-    //string pattern3 = @"<nav class=""task-breadcrumbs"" aria-label=""Breadcrumb"">\s*(.+?)\s*</nav>";
     StringBuilder result = new StringBuilder();
 
     HtmlDocument doc = new HtmlDocument();
@@ -132,13 +140,30 @@ static string GetBreadCrumb(string file)
         return result.ToString().TrimEnd('/'); ;
 
     }
+
+    var pattern3 = doc.DocumentNode.SelectNodes("//ol[@class='breadcrumb']");
+    if (pattern3 != null)
+    {
+        var list = pattern3.Descendants("li");
+        foreach (var item in list)
+        {
+            var span = item.ChildNodes["span"].InnerText;
+            result.Append(span + "/");
+        }
+
+        return result.ToString().TrimEnd('/'); ;
+
+    }
+
+
+
     return null;
 }
-static string GetAllHyperLink(string file)
+
+string GetAssetDetails(string file, string guid)
 {
-
     StringBuilder result = new StringBuilder();
-
+    string AssetCount = "{0}@Pdf-{1}|doc-{2}";
     HtmlDocument doc = new HtmlDocument();
     doc.LoadHtml(file);
 
@@ -146,39 +171,55 @@ static string GetAllHyperLink(string file)
 
     if (links != null)
     {
-        var list = links.Where(link => link.GetAttributeValue("href", null).EndsWith(".pdf"));
-        foreach (var item in list)
+        var pdflist = links.Where(link => link.GetAttributeValue("href", null).EndsWith(".pdf"));
+        var doclist = links.Where(link => link.GetAttributeValue("href", null).EndsWith(".doc"));
+        StringBuilder builder = new StringBuilder();
+
+        int pdfcount = 0;
+        int doccount = 0;
+        string detailedPath = string.Format(txtDetailedListForGivenLinkPath, rootpath, guid);
+
+        foreach (var item in pdflist)
         {
-            result.Append(item.InnerText + "/");
+            var medialink = item.GetAttributeValue("href", null);
+            builder.AppendLine(medialink);
+            pdfcount++;
         }
 
-        return result.ToString().TrimEnd('/');
-    }
-
-    var pattern2 = doc.DocumentNode.SelectNodes("//div/nav[@aria-label='Breadcrumb']");
-    if (pattern2 != null)
-    {
-        var list = pattern2.Descendants("li");
-        foreach (var item in list)
+        foreach (var item in doclist)
         {
-            result.Append(item.InnerText + "/");
+            var medialink = item.GetAttributeValue("href", null);
+            builder.AppendLine(medialink);
+            doccount++;
         }
-
-        return result.ToString().TrimEnd('/'); ;
-
+        string details = string.Format(AssetCount, guid, pdfcount, doccount);
+        AppendDataToTextFile(builder.ToString(), detailedPath);
+        return details;
     }
+
+
     return null;
 }
 
 
-void AppendDataToTextFile(string title)
+void AppendDataToTextFile(string data, string txtPath)
 {
 
-    using (var sw = new StreamWriter(txtPath, true))
+    if (!File.Exists(txtPath))
     {
-        sw.WriteLine(title);
-    }
+        using (StreamWriter sw = File.CreateText(txtPath))
+        {
+            sw.WriteLine(data);
+        }
 
+    }
+    else
+    {
+        using (var sw = new StreamWriter(txtPath, true))
+        {
+            sw.WriteLine(data);
+        }
+    }
 }
 
 
